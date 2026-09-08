@@ -1,0 +1,25 @@
+services:
+  iot-mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - iot-mongo-data:/data/db
+    ports:
+      - "127.0.0.1:27029:27017"
+
+  iot-api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - iot-mongo
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      MONGODB_URI: mongodb://iot-mongo:27017/iot_tracker
+      COUNT_NEXT_UPLOAD_SECONDS: 3600
+      ADMIN_API_TOKEN: ${ADMIN_API_TOKEN:?ADMIN_API_TOKEN is required}
+    ports:
+      - "127.0.0.1:3010:3000"
+
+volumes:
+  iot-mongo-data:
