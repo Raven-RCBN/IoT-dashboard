@@ -44,10 +44,38 @@ select {
 .toolbar,
 .stats,
 .map-section,
-.grid-section {
+.grid-section,
+.login-panel {
   border: 1px solid var(--line);
   background: var(--panel);
   box-shadow: var(--shadow);
+}
+
+.login-panel {
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.login-form {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) minmax(160px, 0.75fr) minmax(180px, 0.75fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.login-form h2 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+.login-form span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.login-form .error-text {
+  color: var(--danger);
 }
 
 .toolbar {
@@ -84,13 +112,9 @@ select {
 
 .filters {
   display: grid;
-  grid-template-columns: minmax(145px, 0.8fr) minmax(170px, 1fr) auto;
+  grid-template-columns: minmax(145px, 0.8fr) minmax(170px, 1fr) auto auto;
   gap: 10px;
   align-items: end;
-}
-
-.filters.auth-required {
-  grid-template-columns: minmax(145px, 0.8fr) minmax(170px, 1fr) minmax(220px, 1.3fr) auto;
 }
 
 label {
@@ -135,6 +159,17 @@ button:focus-visible {
 
 .primary-button:hover {
   background: var(--accent-strong);
+}
+
+.secondary-button {
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  padding: 8px 13px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .stats {
@@ -378,7 +413,8 @@ td {
 
 @media (max-width: 980px) {
   .toolbar,
-  .filters {
+  .filters,
+  .login-form {
     grid-template-columns: 1fr;
   }
 

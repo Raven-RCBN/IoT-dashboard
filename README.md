@@ -76,4 +76,4 @@ http://127.0.0.1:3010/
 ```
 
 It shows map bubbles and a grid for count uploads, harvest assignment downloads, and harvest upload results.
-Set `DASHBOARD_PUBLIC=true` for local testing without a dashboard token. Leave it `false` when exposing the dashboard on a public hostname unless access is otherwise protected.
+Set `DASHBOARD_PUBLIC=true` for local testing without a dashboard token. Use `DASHBOARD_PUBLIC_HOSTS` to limit which hostnames can read dashboard data without an admin token, for example `DASHBOARD_PUBLIC_HOSTS=iotup.digitalpalm.ai`.

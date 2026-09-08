@@ -2,7 +2,8 @@ const state = {
   rows: [],
   devices: [],
   selectedType: "all",
-  authRequired: true,
+  loginEnabled: false,
+  authenticated: false,
   map: null,
   layer: null,
 };
@@ -20,10 +21,14 @@ const palette = [
 
 const els = {
   filters: document.getElementById("filters"),
+  loginPanel: document.getElementById("loginPanel"),
+  loginForm: document.getElementById("loginForm"),
+  loginUsername: document.getElementById("loginUsername"),
+  loginPassword: document.getElementById("loginPassword"),
+  loginMessage: document.getElementById("loginMessage"),
   dateFilter: document.getElementById("dateFilter"),
   deviceFilter: document.getElementById("deviceFilter"),
-  tokenField: document.getElementById("tokenField"),
-  adminToken: document.getElementById("adminToken"),
+  logoutButton: document.getElementById("logoutButton"),
   statusPill: document.getElementById("statusPill"),
   totalCount: document.getElementById("totalCount"),
   uploadCount: document.getElementById("uploadCount"),
@@ -60,13 +65,21 @@ function formatTime(epoch) {
   }).format(new Date(epoch * 1000));
 }
 
-function getToken() {
-  return els.adminToken.value.trim();
-}
-
 function setStatus(text, isError = false) {
   els.statusPill.textContent = text;
   els.statusPill.classList.toggle("error", isError);
+}
+
+function showLogin(message = "Sign in to view dashboard data.", isError = false) {
+  els.loginPanel.hidden = false;
+  els.loginMessage.textContent = message;
+  els.loginMessage.classList.toggle("error-text", isError);
+  els.logoutButton.hidden = true;
+}
+
+function hideLogin() {
+  els.loginPanel.hidden = true;
+  els.logoutButton.hidden = false;
 }
 
 function colorForDevice(deviceId) {
@@ -275,17 +288,12 @@ function renderAll() {
 }
 
 async function loadData() {
-  const token = getToken();
-  if (state.authRequired && !token) {
-    els.tokenField.hidden = false;
-    els.filters.classList.add("auth-required");
-    setStatus("Admin token required", true);
+  if (state.loginEnabled && !state.authenticated) {
+    showLogin();
+    setStatus("Login required", true);
     return;
   }
 
-  if (token) {
-    sessionStorage.setItem("iotDashboardToken", token);
-  }
   setStatus("Loading...");
 
   const params = new URLSearchParams({
@@ -293,16 +301,14 @@ async function loadData() {
     device: els.deviceFilter.value,
   });
 
-  const headers = token ? { "X-Admin-Token": token } : {};
-  const response = await fetch(`/api/v1/dashboard/data?${params.toString()}`, { headers });
+  const response = await fetch(`/api/v1/dashboard/data?${params.toString()}`);
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok || payload.success === false) {
     const code = payload.error && payload.error.code ? payload.error.code : response.status;
     if (response.status === 401) {
-      state.authRequired = true;
-      els.tokenField.hidden = false;
-      els.filters.classList.add("auth-required");
+      state.authenticated = false;
+      showLogin("Please sign in again.", true);
     }
     setStatus(`Error: ${code}`, true);
     return;
@@ -324,6 +330,42 @@ els.filters.addEventListener("submit", (event) => {
   });
 });
 
+els.loginForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  els.loginMessage.textContent = "Signing in...";
+  els.loginMessage.classList.remove("error-text");
+
+  try {
+    const response = await fetch("/api/v1/dashboard/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: els.loginUsername.value,
+        password: els.loginPassword.value,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.success === false) {
+      showLogin("Invalid username or password.", true);
+      return;
+    }
+
+    state.authenticated = true;
+    els.loginPassword.value = "";
+    hideLogin();
+    await loadData();
+  } catch (err) {
+    showLogin(err.message || "Login failed.", true);
+  }
+});
+
+els.logoutButton.addEventListener("click", async () => {
+  await fetch("/api/v1/dashboard/logout", { method: "POST" }).catch(() => undefined);
+  state.authenticated = false;
+  showLogin("Signed out.");
+  setStatus("Login required", true);
+});
+
 document.querySelectorAll(".segment-button").forEach((button) => {
   button.addEventListener("click", () => {
     document.querySelectorAll(".segment-button").forEach((item) => {
@@ -335,19 +377,31 @@ document.querySelectorAll(".segment-button").forEach((button) => {
 });
 
 els.dateFilter.value = malaysiaDate();
-els.adminToken.value = sessionStorage.getItem("iotDashboardToken") || "";
 
 async function init() {
   try {
     const response = await fetch("/api/v1/dashboard/config");
     const payload = await response.json();
-    state.authRequired = Boolean(payload.data && payload.data.authRequired);
-    els.tokenField.hidden = !state.authRequired;
-    els.filters.classList.toggle("auth-required", state.authRequired);
+    state.loginEnabled = Boolean(payload.data && payload.data.loginEnabled);
+    state.authenticated = Boolean(payload.data && payload.data.authenticated);
+
+    if (!state.loginEnabled && payload.data && payload.data.authRequired) {
+      showLogin("Dashboard login is not enabled for this host.", true);
+      setStatus("Protected", true);
+      return;
+    }
+
+    if (state.loginEnabled && !state.authenticated) {
+      showLogin();
+      setStatus("Login required", true);
+      return;
+    }
+
+    hideLogin();
   } catch (err) {
-    state.authRequired = true;
-    els.tokenField.hidden = false;
-    els.filters.classList.add("auth-required");
+    showLogin("Dashboard login is not available.", true);
+    setStatus("Login unavailable", true);
+    return;
   }
 
   await loadData();

@@ -9,6 +9,32 @@
   </head>
   <body>
     <main class="shell">
+      <section id="loginPanel" class="login-panel" hidden>
+        <form id="loginForm" class="login-form">
+          <div>
+            <h2>IoT Tracker Login</h2>
+            <span id="loginMessage">Sign in to view dashboard data.</span>
+          </div>
+
+          <label>
+            <span>Username</span>
+            <input id="loginUsername" name="username" type="text" autocomplete="username" />
+          </label>
+
+          <label>
+            <span>Password</span>
+            <input
+              id="loginPassword"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+            />
+          </label>
+
+          <button type="submit" class="primary-button">Sign in</button>
+        </form>
+      </section>
+
       <header class="toolbar" aria-label="Dashboard filters">
         <div class="brand">
           <h1>IoT Tracker</h1>
@@ -28,18 +54,8 @@
             </select>
           </label>
 
-          <label id="tokenField" class="token-field" hidden>
-            <span>Admin token</span>
-            <input
-              id="adminToken"
-              name="adminToken"
-              type="password"
-              autocomplete="off"
-              placeholder="Required"
-            />
-          </label>
-
           <button type="submit" class="primary-button">Refresh</button>
+          <button id="logoutButton" type="button" class="secondary-button" hidden>Logout</button>
         </form>
       </header>
 
