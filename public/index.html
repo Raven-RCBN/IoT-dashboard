@@ -11,28 +11,32 @@
       <section class="login-panel">
         <form id="loginForm" class="login-form">
           <label>
-            <span>Username</span>
+            <span>User Name</span>
             <input
               id="loginUsername"
               name="username"
               type="text"
               autocomplete="username"
-              value="User"
+              placeholder="User Name"
             />
           </label>
 
           <label>
             <span>Password</span>
-            <input
-              id="loginPassword"
-              name="password"
-              type="password"
-              autocomplete="current-password"
-              autofocus
-            />
+            <span class="password-control">
+              <input
+                id="loginPassword"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                placeholder="Password"
+                autofocus
+              />
+              <button id="togglePassword" type="button" class="password-toggle">Show</button>
+            </span>
           </label>
 
-          <button type="submit" class="primary-button">Sign in</button>
+          <button type="submit" class="primary-button login-button">Login</button>
         </form>
         <p id="loginMessage" class="login-message">Sign in to open the display page.</p>
       </section>

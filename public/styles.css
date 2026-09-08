@@ -58,16 +58,19 @@ select {
 }
 
 .login-panel {
-  width: min(920px, calc(100vw - 36px));
+  width: min(760px, calc(100vw - 36px));
+  border: 0;
+  background: transparent;
+  box-shadow: none;
   border-radius: 8px;
-  padding: 14px;
+  padding: 0;
 }
 
 .login-form {
   display: grid;
-  grid-template-columns: minmax(190px, 1fr) minmax(160px, 0.75fr) minmax(180px, 0.75fr) auto;
-  gap: 12px;
-  align-items: end;
+  grid-template-columns: 1fr;
+  gap: 30px;
+  align-items: stretch;
 }
 
 .login-form h2 {
@@ -77,8 +80,9 @@ select {
 }
 
 .login-form span {
-  color: var(--muted);
-  font-size: 13px;
+  color: var(--ink);
+  font-size: 26px;
+  font-weight: 700;
 }
 
 .login-form .error-text {
@@ -86,9 +90,11 @@ select {
 }
 
 .login-message {
-  margin: 10px 2px 0;
-  color: var(--muted);
-  font-size: 13px;
+  margin: 28px 2px 0;
+  color: var(--accent);
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
 }
 
 .login-message.error-text {
@@ -156,6 +162,44 @@ select {
   outline: none;
 }
 
+.login-form input {
+  min-height: 80px;
+  border: 2px solid #b8bdc3;
+  border-radius: 14px;
+  padding: 16px 20px;
+  color: var(--ink);
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.login-form input::placeholder {
+  color: #b8bdc3;
+}
+
+.password-control {
+  position: relative;
+  display: block;
+}
+
+.password-control input {
+  padding-right: 92px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  min-width: 56px;
+  min-height: 38px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
 input:focus,
 select:focus,
 button:focus-visible {
@@ -172,6 +216,12 @@ button:focus-visible {
   padding: 8px 15px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.login-button {
+  min-height: 92px;
+  border-radius: 14px;
+  font-size: 28px;
 }
 
 .primary-button:hover {
@@ -469,5 +519,23 @@ td {
 
   .grid-section {
     height: 360px;
+  }
+
+  .login-form {
+    gap: 22px;
+  }
+
+  .login-form span {
+    font-size: 22px;
+  }
+
+  .login-form input {
+    min-height: 68px;
+    font-size: 22px;
+  }
+
+  .login-button {
+    min-height: 76px;
+    font-size: 24px;
   }
 }

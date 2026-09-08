@@ -2,6 +2,7 @@ const loginForm = document.getElementById("loginForm");
 const loginUsername = document.getElementById("loginUsername");
 const loginPassword = document.getElementById("loginPassword");
 const loginMessage = document.getElementById("loginMessage");
+const togglePassword = document.getElementById("togglePassword");
 
 function setLoginMessage(message, isError = false) {
   loginMessage.textContent = message;
@@ -57,6 +58,12 @@ loginForm.addEventListener("submit", async (event) => {
   } catch (err) {
     setLoginMessage(err.message || "Login failed.", true);
   }
+});
+
+togglePassword.addEventListener("click", () => {
+  const showing = loginPassword.type === "text";
+  loginPassword.type = showing ? "password" : "text";
+  togglePassword.textContent = showing ? "Show" : "Hide";
 });
 
 initLogin();
