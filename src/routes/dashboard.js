@@ -4,6 +4,7 @@ const CountRecord = require("../models/CountRecord");
 const Assignment = require("../models/Assignment");
 const HarvestRecord = require("../models/HarvestRecord");
 const { requireAdminToken } = require("../middleware/adminAuth");
+const { env } = require("../config/env");
 const { success, failure } = require("../utils/responses");
 
 const router = express.Router();
@@ -11,7 +12,18 @@ const router = express.Router();
 const DAY_SECONDS = 24 * 60 * 60;
 const MALAYSIA_OFFSET = "+08:00";
 
-router.use(requireAdminToken);
+function requireDashboardAccess(req, res, next) {
+  if (env.dashboardPublic) {
+    return next();
+  }
+  return requireAdminToken(req, res, next);
+}
+
+router.get("/config", (req, res) => {
+  return success(res, {
+    authRequired: !env.dashboardPublic,
+  });
+});
 
 function parseDateWindow(dateValue) {
   if (!dateValue) {
@@ -124,7 +136,7 @@ function summarize(rows) {
   );
 }
 
-router.get("/data", async (req, res, next) => {
+router.get("/data", requireDashboardAccess, async (req, res, next) => {
   try {
     const dateWindow = parseDateWindow(req.query.date);
     if (dateWindow === false) {

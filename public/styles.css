@@ -14,6 +14,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   min-width: 320px;
@@ -80,9 +84,13 @@ select {
 
 .filters {
   display: grid;
-  grid-template-columns: minmax(145px, 0.8fr) minmax(170px, 1fr) minmax(220px, 1.3fr) auto;
+  grid-template-columns: minmax(145px, 0.8fr) minmax(170px, 1fr) auto;
   gap: 10px;
   align-items: end;
+}
+
+.filters.auth-required {
+  grid-template-columns: minmax(145px, 0.8fr) minmax(170px, 1fr) minmax(220px, 1.3fr) auto;
 }
 
 label {

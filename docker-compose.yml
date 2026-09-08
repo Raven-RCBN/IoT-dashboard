@@ -18,6 +18,7 @@ services:
       MONGODB_URI: mongodb://iot-mongo:27017/iot_tracker
       COUNT_NEXT_UPLOAD_SECONDS: 3600
       ADMIN_API_TOKEN: ${ADMIN_API_TOKEN:?ADMIN_API_TOKEN is required}
+      DASHBOARD_PUBLIC: ${DASHBOARD_PUBLIC:-true}
     ports:
       - "127.0.0.1:3010:3000"
 

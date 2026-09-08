@@ -75,4 +75,5 @@ The local dashboard is served from the API root:
 http://127.0.0.1:3010/
 ```
 
-It shows map bubbles and a grid for count uploads, harvest assignment downloads, and harvest upload results. The dashboard uses the admin token for read-only data access.
+It shows map bubbles and a grid for count uploads, harvest assignment downloads, and harvest upload results.
+Set `DASHBOARD_PUBLIC=true` for local testing without a dashboard token. Leave it `false` when exposing the dashboard on a public hostname unless access is otherwise protected.

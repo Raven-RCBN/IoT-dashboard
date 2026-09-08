@@ -2,6 +2,7 @@ const state = {
   rows: [],
   devices: [],
   selectedType: "all",
+  authRequired: true,
   map: null,
   layer: null,
 };
@@ -21,6 +22,7 @@ const els = {
   filters: document.getElementById("filters"),
   dateFilter: document.getElementById("dateFilter"),
   deviceFilter: document.getElementById("deviceFilter"),
+  tokenField: document.getElementById("tokenField"),
   adminToken: document.getElementById("adminToken"),
   statusPill: document.getElementById("statusPill"),
   totalCount: document.getElementById("totalCount"),
@@ -274,12 +276,16 @@ function renderAll() {
 
 async function loadData() {
   const token = getToken();
-  if (!token) {
+  if (state.authRequired && !token) {
+    els.tokenField.hidden = false;
+    els.filters.classList.add("auth-required");
     setStatus("Admin token required", true);
     return;
   }
 
-  sessionStorage.setItem("iotDashboardToken", token);
+  if (token) {
+    sessionStorage.setItem("iotDashboardToken", token);
+  }
   setStatus("Loading...");
 
   const params = new URLSearchParams({
@@ -287,13 +293,17 @@ async function loadData() {
     device: els.deviceFilter.value,
   });
 
-  const response = await fetch(`/api/v1/dashboard/data?${params.toString()}`, {
-    headers: { "X-Admin-Token": token },
-  });
+  const headers = token ? { "X-Admin-Token": token } : {};
+  const response = await fetch(`/api/v1/dashboard/data?${params.toString()}`, { headers });
   const payload = await response.json().catch(() => ({}));
 
   if (!response.ok || payload.success === false) {
     const code = payload.error && payload.error.code ? payload.error.code : response.status;
+    if (response.status === 401) {
+      state.authRequired = true;
+      els.tokenField.hidden = false;
+      els.filters.classList.add("auth-required");
+    }
     setStatus(`Error: ${code}`, true);
     return;
   }
@@ -327,8 +337,22 @@ document.querySelectorAll(".segment-button").forEach((button) => {
 els.dateFilter.value = malaysiaDate();
 els.adminToken.value = sessionStorage.getItem("iotDashboardToken") || "";
 
-if (els.adminToken.value) {
-  loadData().catch((err) => {
-    setStatus(err.message || "Load failed", true);
-  });
+async function init() {
+  try {
+    const response = await fetch("/api/v1/dashboard/config");
+    const payload = await response.json();
+    state.authRequired = Boolean(payload.data && payload.data.authRequired);
+    els.tokenField.hidden = !state.authRequired;
+    els.filters.classList.toggle("auth-required", state.authRequired);
+  } catch (err) {
+    state.authRequired = true;
+    els.tokenField.hidden = false;
+    els.filters.classList.add("auth-required");
+  }
+
+  await loadData();
 }
+
+init().catch((err) => {
+  setStatus(err.message || "Load failed", true);
+});
