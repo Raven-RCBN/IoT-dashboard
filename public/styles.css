@@ -34,11 +34,16 @@ select {
   font: inherit;
 }
 
-.shell {
+.shell,
+.login-shell {
   display: grid;
   gap: 14px;
   min-height: 100vh;
   padding: 18px;
+}
+
+.login-shell {
+  align-content: start;
 }
 
 .toolbar,
@@ -75,6 +80,16 @@ select {
 }
 
 .login-form .error-text {
+  color: var(--danger);
+}
+
+.login-message {
+  margin: 10px 2px 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.login-message.error-text {
   color: var(--danger);
 }
 

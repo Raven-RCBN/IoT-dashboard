@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>IoT Tracker Display</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="toolbar" aria-label="Dashboard filters">
+        <div class="brand">
+          <h1>IoT Tracker</h1>
+          <span id="statusPill" class="status-pill">Loading...</span>
+        </div>
+
+        <form id="filters" class="filters">
+          <label>
+            <span>Date</span>
+            <input id="dateFilter" name="date" type="date" />
+          </label>
+
+          <label>
+            <span>Device</span>
+            <select id="deviceFilter" name="device">
+              <option value="all">All devices</option>
+            </select>
+          </label>
+
+          <button type="submit" class="primary-button">Refresh</button>
+          <button id="logoutButton" type="button" class="secondary-button">Logout</button>
+        </form>
+      </header>
+
+      <section class="stats" aria-label="Data summary">
+        <article>
+          <span>Total</span>
+          <strong id="totalCount">0</strong>
+        </article>
+        <article>
+          <span>Uploads</span>
+          <strong id="uploadCount">0</strong>
+        </article>
+        <article>
+          <span>Downloads</span>
+          <strong id="downloadCount">0</strong>
+        </article>
+        <article>
+          <span>Harvest</span>
+          <strong id="harvestCount">0</strong>
+        </article>
+      </section>
+
+      <section class="map-section" aria-label="Map">
+        <div id="map" class="map"></div>
+        <div id="fallbackMap" class="fallback-map" hidden></div>
+        <div id="legend" class="legend" aria-label="Device colors"></div>
+      </section>
+
+      <section class="grid-section" aria-label="Upload and download records">
+        <div class="grid-header">
+          <div class="segment" role="tablist" aria-label="Record type">
+            <button class="segment-button active" data-type="all" type="button">All</button>
+            <button class="segment-button" data-type="upload" type="button">Uploads</button>
+            <button class="segment-button" data-type="download" type="button">Downloads</button>
+            <button class="segment-button" data-type="harvest_upload" type="button">Harvest</button>
+          </div>
+          <span id="lastUpdated" class="last-updated"></span>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Device</th>
+                <th>Record</th>
+                <th>Assignment</th>
+                <th>Point</th>
+                <th>Latitude</th>
+                <th>Longitude</th>
+                <th>Device time</th>
+                <th>Server time</th>
+                <th>Battery</th>
+                <th>Sector</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="recordsBody">
+              <tr>
+                <td colspan="12" class="empty-state">Loading data...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>

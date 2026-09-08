@@ -21,11 +21,6 @@ const palette = [
 
 const els = {
   filters: document.getElementById("filters"),
-  loginPanel: document.getElementById("loginPanel"),
-  loginForm: document.getElementById("loginForm"),
-  loginUsername: document.getElementById("loginUsername"),
-  loginPassword: document.getElementById("loginPassword"),
-  loginMessage: document.getElementById("loginMessage"),
   dateFilter: document.getElementById("dateFilter"),
   deviceFilter: document.getElementById("deviceFilter"),
   logoutButton: document.getElementById("logoutButton"),
@@ -68,18 +63,6 @@ function formatTime(epoch) {
 function setStatus(text, isError = false) {
   els.statusPill.textContent = text;
   els.statusPill.classList.toggle("error", isError);
-}
-
-function showLogin(message = "Sign in to view dashboard data.", isError = false) {
-  els.loginPanel.hidden = false;
-  els.loginMessage.textContent = message;
-  els.loginMessage.classList.toggle("error-text", isError);
-  els.logoutButton.hidden = true;
-}
-
-function hideLogin() {
-  els.loginPanel.hidden = true;
-  els.logoutButton.hidden = false;
 }
 
 function colorForDevice(deviceId) {
@@ -289,8 +272,7 @@ function renderAll() {
 
 async function loadData() {
   if (state.loginEnabled && !state.authenticated) {
-    showLogin();
-    setStatus("Login required", true);
+    window.location.replace("/");
     return;
   }
 
@@ -308,7 +290,8 @@ async function loadData() {
     const code = payload.error && payload.error.code ? payload.error.code : response.status;
     if (response.status === 401) {
       state.authenticated = false;
-      showLogin("Please sign in again.", true);
+      window.location.replace("/");
+      return;
     }
     setStatus(`Error: ${code}`, true);
     return;
@@ -330,40 +313,10 @@ els.filters.addEventListener("submit", (event) => {
   });
 });
 
-els.loginForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  els.loginMessage.textContent = "Signing in...";
-  els.loginMessage.classList.remove("error-text");
-
-  try {
-    const response = await fetch("/api/v1/dashboard/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: els.loginUsername.value,
-        password: els.loginPassword.value,
-      }),
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok || payload.success === false) {
-      showLogin("Invalid username or password.", true);
-      return;
-    }
-
-    state.authenticated = true;
-    els.loginPassword.value = "";
-    hideLogin();
-    await loadData();
-  } catch (err) {
-    showLogin(err.message || "Login failed.", true);
-  }
-});
-
 els.logoutButton.addEventListener("click", async () => {
   await fetch("/api/v1/dashboard/logout", { method: "POST" }).catch(() => undefined);
   state.authenticated = false;
-  showLogin("Signed out.");
-  setStatus("Login required", true);
+  window.location.replace("/");
 });
 
 document.querySelectorAll(".segment-button").forEach((button) => {
@@ -386,20 +339,15 @@ async function init() {
     state.authenticated = Boolean(payload.data && payload.data.authenticated);
 
     if (!state.loginEnabled && payload.data && payload.data.authRequired) {
-      showLogin("Dashboard login is not enabled for this host.", true);
       setStatus("Protected", true);
       return;
     }
 
     if (state.loginEnabled && !state.authenticated) {
-      showLogin();
-      setStatus("Login required", true);
+      window.location.replace("/");
       return;
     }
-
-    hideLogin();
   } catch (err) {
-    showLogin("Dashboard login is not available.", true);
     setStatus("Login unavailable", true);
     return;
   }

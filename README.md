@@ -75,5 +75,5 @@ The local dashboard is served from the API root:
 http://127.0.0.1:3010/
 ```
 
-It shows map bubbles and a grid for count uploads, harvest assignment downloads, and harvest upload results.
+The root page is the dashboard login. After sign-in, the app opens `/display.html`, which shows map bubbles and a grid for count uploads, harvest assignment downloads, and harvest upload results.
 Set `DASHBOARD_PUBLIC=true` for local testing without a dashboard token. Use `DASHBOARD_PUBLIC_HOSTS` to limit which hostnames can read dashboard data without an admin token, for example `DASHBOARD_PUBLIC_HOSTS=iotup.digitalpalm.ai`.
