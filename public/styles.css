@@ -58,7 +58,7 @@ select {
 }
 
 .login-panel {
-  width: min(760px, calc(100vw - 36px));
+  width: min(560px, calc(100vw - 36px));
   border: 0;
   background: transparent;
   box-shadow: none;
@@ -69,7 +69,7 @@ select {
 .login-form {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 30px;
+  gap: 18px;
   align-items: stretch;
 }
 
@@ -81,7 +81,7 @@ select {
 
 .login-form span {
   color: var(--ink);
-  font-size: 26px;
+  font-size: 18px;
   font-weight: 700;
 }
 
@@ -90,9 +90,9 @@ select {
 }
 
 .login-message {
-  margin: 28px 2px 0;
+  margin: 16px 2px 0;
   color: var(--accent);
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 700;
   text-align: center;
 }
@@ -163,12 +163,12 @@ select {
 }
 
 .login-form input {
-  min-height: 80px;
+  min-height: 54px;
   border: 2px solid #b8bdc3;
-  border-radius: 14px;
-  padding: 16px 20px;
+  border-radius: 10px;
+  padding: 10px 14px;
   color: var(--ink);
-  font-size: 26px;
+  font-size: 18px;
   font-weight: 700;
 }
 
@@ -182,15 +182,15 @@ select {
 }
 
 .password-control input {
-  padding-right: 92px;
+  padding-right: 74px;
 }
 
 .password-toggle {
   position: absolute;
-  right: 18px;
+  right: 12px;
   top: 50%;
-  min-width: 56px;
-  min-height: 38px;
+  min-width: 48px;
+  min-height: 32px;
   border: 0;
   background: transparent;
   color: var(--ink);
@@ -219,9 +219,9 @@ button:focus-visible {
 }
 
 .login-button {
-  min-height: 92px;
-  border-radius: 14px;
-  font-size: 28px;
+  min-height: 58px;
+  border-radius: 10px;
+  font-size: 20px;
 }
 
 .primary-button:hover {
@@ -522,20 +522,20 @@ td {
   }
 
   .login-form {
-    gap: 22px;
+    gap: 16px;
   }
 
   .login-form span {
-    font-size: 22px;
+    font-size: 17px;
   }
 
   .login-form input {
-    min-height: 68px;
-    font-size: 22px;
+    min-height: 52px;
+    font-size: 17px;
   }
 
   .login-button {
-    min-height: 76px;
-    font-size: 24px;
+    min-height: 56px;
+    font-size: 19px;
   }
 }
