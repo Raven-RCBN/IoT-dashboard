@@ -1,6 +1,7 @@
 const state = {
   rows: [],
   devices: [],
+  dateCounts: [],
   selectedType: "all",
   loginEnabled: false,
   authenticated: false,
@@ -21,7 +22,8 @@ const palette = [
 
 const els = {
   filters: document.getElementById("filters"),
-  dateFilter: document.getElementById("dateFilter"),
+  monthFilter: document.getElementById("monthFilter"),
+  dayFilter: document.getElementById("dayFilter"),
   deviceFilter: document.getElementById("deviceFilter"),
   logoutButton: document.getElementById("logoutButton"),
   statusPill: document.getElementById("statusPill"),
@@ -45,6 +47,33 @@ function malaysiaDate() {
   }).formatToParts(new Date());
   const lookup = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   return `${lookup.year}-${lookup.month}-${lookup.day}`;
+}
+
+function malaysiaMonth() {
+  return malaysiaDate().slice(0, 7);
+}
+
+function daysInMonth(monthValue) {
+  if (!/^\d{4}-\d{2}$/.test(monthValue)) return 0;
+  const [year, month] = monthValue.split("-").map(Number);
+  return new Date(year, month, 0).getDate();
+}
+
+function monthDisplayName(monthValue) {
+  if (!/^\d{4}-\d{2}$/.test(monthValue)) return "selected month";
+  const [year, month] = monthValue.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-GB", {
+    month: "long",
+    year: "numeric",
+  }).format(new Date(year, month - 1, 1));
+}
+
+function dayDisplayName(dateValue) {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kuala_Lumpur",
+    day: "2-digit",
+    month: "short",
+  }).format(new Date(`${dateValue}T00:00:00+08:00`));
 }
 
 function formatTime(epoch) {
@@ -115,6 +144,29 @@ function updateDeviceFilter(devices) {
     : "all";
 }
 
+function updateDayFilter() {
+  const selected = els.dayFilter.value || "all";
+  const monthValue = els.monthFilter.value || malaysiaMonth();
+  const dateTotalByDay = new Map(state.dateCounts.map((item) => [item.date, item.total]));
+  const options = [
+    `<option value="all">All dates in ${escapeHtml(monthDisplayName(monthValue))}</option>`,
+  ];
+  const dayCount = daysInMonth(monthValue);
+
+  for (let day = 1; day <= dayCount; day += 1) {
+    const date = `${monthValue}-${String(day).padStart(2, "0")}`;
+    const total = dateTotalByDay.get(date) || 0;
+    const suffix = total ? ` (${total})` : "";
+    options.push(`<option value="${date}">${escapeHtml(dayDisplayName(date))}${suffix}</option>`);
+  }
+
+  els.dayFilter.innerHTML = options.join("");
+  els.dayFilter.value =
+    selected === "all" || options.some((option) => option.includes(`value="${selected}"`))
+      ? selected
+      : "all";
+}
+
 function renderLegend(rows) {
   const deviceIds = [...new Set(rows.map((row) => row.deviceId))].sort();
   if (!deviceIds.length) {
@@ -144,10 +196,13 @@ function initLeafletMap() {
     attributionControl: true,
   }).setView([2.869641, 101.65313], 14);
 
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+  L.tileLayer(
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+    {
     maxZoom: 19,
-    attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
-  }).addTo(state.map);
+    attribution: "Tiles &copy; Esri",
+    }
+  ).addTo(state.map);
 
   state.layer = L.layerGroup().addTo(state.map);
   return true;
@@ -279,9 +334,13 @@ async function loadData() {
   setStatus("Loading...");
 
   const params = new URLSearchParams({
-    date: els.dateFilter.value,
+    month: els.monthFilter.value,
     device: els.deviceFilter.value,
   });
+
+  if (els.dayFilter.value !== "all") {
+    params.set("date", els.dayFilter.value);
+  }
 
   const response = await fetch(`/api/v1/dashboard/data?${params.toString()}`);
   const payload = await response.json().catch(() => ({}));
@@ -299,8 +358,10 @@ async function loadData() {
 
   state.rows = payload.data.rows || [];
   state.devices = payload.data.devices || [];
+  state.dateCounts = payload.data.dateCounts || [];
   updateStats(payload.data.summary || {});
   updateDeviceFilter(state.devices);
+  updateDayFilter();
   renderAll();
   els.lastUpdated.textContent = `Updated ${formatTime(Math.floor(Date.now() / 1000))}`;
   setStatus("Connected");
@@ -311,6 +372,12 @@ els.filters.addEventListener("submit", (event) => {
   loadData().catch((err) => {
     setStatus(err.message || "Load failed", true);
   });
+});
+
+els.monthFilter.addEventListener("change", () => {
+  els.dayFilter.value = "all";
+  state.dateCounts = [];
+  updateDayFilter();
 });
 
 els.logoutButton.addEventListener("click", async () => {
@@ -329,7 +396,8 @@ document.querySelectorAll(".segment-button").forEach((button) => {
   });
 });
 
-els.dateFilter.value = malaysiaDate();
+els.monthFilter.value = malaysiaMonth();
+updateDayFilter();
 
 async function init() {
   try {

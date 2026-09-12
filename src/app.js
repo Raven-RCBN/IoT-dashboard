@@ -25,6 +25,7 @@ function createApp() {
             "data:",
             "https://*.tile.openstreetmap.org",
             "https://*.basemaps.cartocdn.com",
+            "https://server.arcgisonline.com",
           ],
           connectSrc: ["'self'"],
         },

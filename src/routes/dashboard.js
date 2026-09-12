@@ -11,6 +11,7 @@ const { success, failure } = require("../utils/responses");
 const router = express.Router();
 
 const DAY_SECONDS = 24 * 60 * 60;
+const HOUR_SECONDS = 60 * 60;
 const MALAYSIA_OFFSET = "+08:00";
 const DASHBOARD_COOKIE = "iot_dashboard_session";
 const DASHBOARD_SESSION_SECONDS = 12 * 60 * 60;
@@ -187,6 +188,39 @@ function parseDateWindow(dateValue) {
   return { start, end: start + DAY_SECONDS };
 }
 
+function parseMonthWindow(monthValue) {
+  if (!monthValue) {
+    return null;
+  }
+
+  if (!/^\d{4}-\d{2}$/.test(monthValue)) {
+    return false;
+  }
+
+  const [year, month] = monthValue.split("-").map(Number);
+  if (month < 1 || month > 12) {
+    return false;
+  }
+
+  const nextYear = month === 12 ? year + 1 : year;
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const startMs = Date.parse(`${monthValue}-01T00:00:00${MALAYSIA_OFFSET}`);
+  const endMs = Date.parse(
+    `${String(nextYear).padStart(4, "0")}-${String(nextMonth).padStart(2, "0")}-01T00:00:00${MALAYSIA_OFFSET}`
+  );
+
+  if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs) {
+    return false;
+  }
+
+  return { start: Math.floor(startMs / 1000), end: Math.floor(endMs / 1000) };
+}
+
+function epochToMalaysiaDate(epoch) {
+  if (!epoch) return "";
+  return new Date((epoch + 8 * HOUR_SECONDS) * 1000).toISOString().slice(0, 10);
+}
+
 function gpsE7ToDecimal(value) {
   return Number((value / 10000000).toFixed(7));
 }
@@ -280,6 +314,60 @@ function summarize(rows) {
   );
 }
 
+async function buildDateCounts(dateWindow, deviceFilter) {
+  const countQuery = {
+    ...buildTimeRangeQuery("receivedAt", dateWindow),
+    ...(deviceFilter ? { deviceId: deviceFilter } : {}),
+  };
+  const harvestQuery = {
+    ...buildTimeRangeQuery("receivedAt", dateWindow),
+    ...(deviceFilter ? { deviceId: deviceFilter } : {}),
+  };
+  const assignmentQuery = {
+    ...buildTimeRangeQuery("generatedAt", dateWindow),
+    ...(deviceFilter ? { harvesterDeviceId: deviceFilter } : {}),
+  };
+
+  const [countRecords, harvestRecords, assignments] = await Promise.all([
+    CountRecord.find(countQuery).select("-_id receivedAt").lean().exec(),
+    HarvestRecord.find(harvestQuery).select("-_id receivedAt").lean().exec(),
+    Assignment.find(assignmentQuery).select("-_id generatedAt points.pointId").lean().exec(),
+  ]);
+
+  const countsByDate = {};
+  const ensureDate = (date) => {
+    countsByDate[date] = countsByDate[date] || {
+      date,
+      uploads: 0,
+      downloads: 0,
+      harvestUploads: 0,
+      total: 0,
+    };
+    return countsByDate[date];
+  };
+
+  for (const record of countRecords) {
+    const count = ensureDate(epochToMalaysiaDate(record.receivedAt));
+    count.uploads += 1;
+    count.total += 1;
+  }
+
+  for (const record of harvestRecords) {
+    const count = ensureDate(epochToMalaysiaDate(record.receivedAt));
+    count.harvestUploads += 1;
+    count.total += 1;
+  }
+
+  for (const assignment of assignments) {
+    const count = ensureDate(epochToMalaysiaDate(assignment.generatedAt));
+    const pointCount = Array.isArray(assignment.points) ? assignment.points.length : 0;
+    count.downloads += pointCount;
+    count.total += pointCount;
+  }
+
+  return Object.values(countsByDate).sort((a, b) => a.date.localeCompare(b.date));
+}
+
 router.get("/data", requireDashboardAccess, async (req, res, next) => {
   try {
     const dateWindow = parseDateWindow(req.query.date);
@@ -287,24 +375,30 @@ router.get("/data", requireDashboardAccess, async (req, res, next) => {
       return failure(res, 400, "INVALID_QUERY", "date must use YYYY-MM-DD format.");
     }
 
+    const monthWindow = parseMonthWindow(req.query.month);
+    if (monthWindow === false) {
+      return failure(res, 400, "INVALID_QUERY", "month must use YYYY-MM format.");
+    }
+
     const device = String(req.query.device || "all").trim();
     const deviceFilter = device && device.toLowerCase() !== "all" ? device : null;
     const limit = Math.min(Number(req.query.limit || 1000), 5000);
+    const selectedWindow = dateWindow || monthWindow;
 
     const countQuery = {
-      ...buildTimeRangeQuery("receivedAt", dateWindow),
+      ...buildTimeRangeQuery("receivedAt", selectedWindow),
       ...(deviceFilter ? { deviceId: deviceFilter } : {}),
     };
     const harvestQuery = {
-      ...buildTimeRangeQuery("receivedAt", dateWindow),
+      ...buildTimeRangeQuery("receivedAt", selectedWindow),
       ...(deviceFilter ? { deviceId: deviceFilter } : {}),
     };
     const assignmentQuery = {
-      ...buildTimeRangeQuery("generatedAt", dateWindow),
+      ...buildTimeRangeQuery("generatedAt", selectedWindow),
       ...(deviceFilter ? { harvesterDeviceId: deviceFilter } : {}),
     };
 
-    const [devices, countRecords, harvestRecords, assignments] = await Promise.all([
+    const [devices, countRecords, harvestRecords, assignments, dateCounts] = await Promise.all([
       Device.find({})
         .sort({ deviceId: 1 })
         .select("-_id deviceId role lastSeen battery firmware seq")
@@ -313,6 +407,7 @@ router.get("/data", requireDashboardAccess, async (req, res, next) => {
       CountRecord.find(countQuery).sort({ receivedAt: -1 }).limit(limit).lean().exec(),
       HarvestRecord.find(harvestQuery).sort({ receivedAt: -1 }).limit(limit).lean().exec(),
       Assignment.find(assignmentQuery).sort({ generatedAt: -1 }).limit(limit).lean().exec(),
+      buildDateCounts(monthWindow || dateWindow, deviceFilter),
     ]);
 
     const rows = [
@@ -326,9 +421,11 @@ router.get("/data", requireDashboardAccess, async (req, res, next) => {
     return success(res, {
       filters: {
         date: req.query.date || null,
+        month: req.query.month || null,
         device: deviceFilter || "all",
       },
       devices,
+      dateCounts,
       summary: summarize(rows),
       rows,
     });
