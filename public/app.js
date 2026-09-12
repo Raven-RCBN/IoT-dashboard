@@ -144,9 +144,9 @@ function initLeafletMap() {
     attributionControl: true,
   }).setView([2.869641, 101.65313], 14);
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
     maxZoom: 19,
-    attribution: "&copy; OpenStreetMap",
+    attribution: "&copy; OpenStreetMap contributors &copy; CARTO",
   }).addTo(state.map);
 
   state.layer = L.layerGroup().addTo(state.map);

@@ -20,7 +20,12 @@ function createApp() {
           defaultSrc: ["'self'"],
           scriptSrc: ["'self'", "https://unpkg.com"],
           styleSrc: ["'self'", "https://unpkg.com", "'unsafe-inline'"],
-          imgSrc: ["'self'", "data:", "https://*.tile.openstreetmap.org"],
+          imgSrc: [
+            "'self'",
+            "data:",
+            "https://*.tile.openstreetmap.org",
+            "https://*.basemaps.cartocdn.com",
+          ],
           connectSrc: ["'self'"],
         },
       },
