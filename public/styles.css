@@ -272,6 +272,8 @@ button:focus-visible {
 }
 
 .links-section {
+  min-width: 0;
+  overflow: hidden;
   border-radius: 8px;
 }
 
@@ -307,6 +309,7 @@ button:focus-visible {
 }
 
 .links-content {
+  min-width: 0;
   border-top: 1px solid var(--line);
   padding: 12px 14px 14px;
 }
@@ -330,6 +333,8 @@ button:focus-visible {
 }
 
 .links-table-wrap {
+  width: 100%;
+  max-width: 100%;
   max-height: 280px;
   overflow: auto;
 }
