@@ -46,6 +46,7 @@ docker compose exec iot-api pnpm run seed
 - `devices`: registered hardware units and API tokens.
 - `zones`: plantation sectors.
 - `count_records`: supervisor count uploads, deduped by `deviceId + localId`.
+- `device_links`: one-to-one count-to-harvest device setup for assignment creation.
 - `assignments`: active harvest work packets with embedded assignment points.
 - `harvest_records`: harvester results, deduped by `deviceId + assignmentId + pointId`.
 - `counters`: numeric IDs for admin-created zones and assignments.
@@ -77,3 +78,5 @@ http://127.0.0.1:3010/
 
 The root page is the dashboard login. After sign-in, the app opens `/display.html`, which shows map bubbles and a grid for count uploads, harvest assignment downloads, and harvest upload results.
 Set `DASHBOARD_PUBLIC=true` for local testing without a dashboard token. Use `DASHBOARD_PUBLIC_HOSTS` to limit which hostnames can read dashboard data without an admin token, for example `DASHBOARD_PUBLIC_HOSTS=iotup.digitalpalm.ai`.
+
+Open **Device links** on the display page to pair a count device with a harvest device and sector. The **Inspect** action filters the grid to that source device's uploads. **Create assignment** packages up to 200 of its unassigned uploads for the linked harvest device; the device receives that packet from `/api/v1/harvest/download`. A further assignment is blocked until all points in the current one have harvest results. Saving a link does not change the hardware API or create an assignment by itself.

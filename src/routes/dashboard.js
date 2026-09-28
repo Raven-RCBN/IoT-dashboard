@@ -1,12 +1,15 @@
 const express = require("express");
 const crypto = require("crypto");
 const Device = require("../models/Device");
+const DeviceLink = require("../models/DeviceLink");
 const CountRecord = require("../models/CountRecord");
 const Assignment = require("../models/Assignment");
 const HarvestRecord = require("../models/HarvestRecord");
 const { requireAdminToken } = require("../middleware/adminAuth");
+const { nextSequence } = require("../services/counters");
 const { env } = require("../config/env");
 const { success, failure } = require("../utils/responses");
+const { unixNow } = require("../utils/time");
 
 const router = express.Router();
 
@@ -131,6 +134,21 @@ function requireDashboardAccess(req, res, next) {
   }
 
   return requireAdminToken(req, res, next);
+}
+
+function requireDashboardMutationAccess(req, res, next) {
+  if (hasAdminToken(req)) return next();
+
+  const origin = req.header("origin");
+  try {
+    if (!origin || new URL(origin).host !== req.header("host")) {
+      return failure(res, 403, "INVALID_ORIGIN", "Request must come from this dashboard.");
+    }
+  } catch (err) {
+    return failure(res, 403, "INVALID_ORIGIN", "Request must come from this dashboard.");
+  }
+
+  return requireDashboardAccess(req, res, next);
 }
 
 router.get("/config", (req, res) => {
@@ -431,6 +449,192 @@ router.get("/data", requireDashboardAccess, async (req, res, next) => {
     });
   } catch (err) {
     return next(err);
+  }
+});
+
+async function activeAssignmentProgress(harvesterDeviceId) {
+  const assignment = await Assignment.findOne({ harvesterDeviceId, active: true })
+    .sort({ generatedAt: -1, createdAt: -1 })
+    .lean()
+    .exec();
+  if (!assignment) return null;
+
+  const harvestedPointIds = await HarvestRecord.distinct("pointId", {
+    deviceId: harvesterDeviceId,
+    assignmentId: assignment.assignmentId,
+  }).exec();
+  const harvested = new Set(harvestedPointIds);
+  return {
+    assignmentId: assignment.assignmentId,
+    points: assignment.points.length,
+    harvested: assignment.points.filter((point) => harvested.has(point.pointId)).length,
+    acked: Boolean(assignment.ackedAt),
+  };
+}
+
+router.get("/links", requireDashboardAccess, async (req, res, next) => {
+  try {
+    const links = await DeviceLink.find({}).sort({ countDeviceId: 1 }).lean().exec();
+    const rows = await Promise.all(links.map(async (link) => {
+      const [uploads, unassigned, activeAssignment] = await Promise.all([
+        CountRecord.countDocuments({ deviceId: link.countDeviceId }),
+        CountRecord.countDocuments({
+          deviceId: link.countDeviceId,
+          assignedAssignmentId: { $exists: false },
+        }),
+        activeAssignmentProgress(link.harvesterDeviceId),
+      ]);
+      return {
+        countDeviceId: link.countDeviceId,
+        harvesterDeviceId: link.harvesterDeviceId,
+        sectorName: link.sectorName,
+        uploads,
+        unassigned,
+        activeAssignment,
+      };
+    }));
+    return success(res, { links: rows });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post("/links", requireDashboardMutationAccess, async (req, res, next) => {
+  try {
+    const countDeviceId = String(req.body.countDeviceId || "").trim();
+    const harvesterDeviceId = String(req.body.harvesterDeviceId || "").trim();
+    const sectorName = String(req.body.sectorName || "").trim();
+    if (!countDeviceId || !harvesterDeviceId || !sectorName || sectorName.length > 100) {
+      return failure(res, 400, "INVALID_LINK", "Choose both devices and enter a sector name (up to 100 characters).");
+    }
+
+    const [countDevice, harvesterDevice, targetLink, currentLink] = await Promise.all([
+      Device.findOne({ deviceId: countDeviceId, role: "count" }).lean().exec(),
+      Device.findOne({ deviceId: harvesterDeviceId, role: "harvest" }).lean().exec(),
+      DeviceLink.findOne({ harvesterDeviceId }).lean().exec(),
+      DeviceLink.findOne({ countDeviceId }).lean().exec(),
+    ]);
+    if (!countDevice || !harvesterDevice) {
+      return failure(res, 400, "INVALID_DEVICE", "Select a registered count device and harvest device.");
+    }
+    if (targetLink && targetLink.countDeviceId !== countDeviceId) {
+      return failure(res, 409, "DEVICE_ALREADY_LINKED", "This harvest device is already linked to another count device.");
+    }
+    if (currentLink && currentLink.harvesterDeviceId !== harvesterDeviceId) {
+      const progress = await activeAssignmentProgress(currentLink.harvesterDeviceId);
+      if (progress && progress.harvested < progress.points) {
+        return failure(res, 409, "ACTIVE_ASSIGNMENT", "Finish the current harvest assignment before changing this link.");
+      }
+    }
+
+    const now = unixNow();
+    await DeviceLink.findOneAndUpdate(
+      { countDeviceId },
+      {
+        $set: { harvesterDeviceId, sectorName, updatedAt: now },
+        $setOnInsert: { countDeviceId, createdAt: now },
+      },
+      { upsert: true, new: true, runValidators: true }
+    ).exec();
+    return success(res, { countDeviceId, harvesterDeviceId, sectorName });
+  } catch (err) {
+    if (err && err.code === 11000) {
+      return failure(res, 409, "DEVICE_ALREADY_LINKED", "One of these devices is already linked.");
+    }
+    return next(err);
+  }
+});
+
+router.delete("/links/:countDeviceId", requireDashboardMutationAccess, async (req, res, next) => {
+  try {
+    const link = await DeviceLink.findOne({ countDeviceId: req.params.countDeviceId }).lean().exec();
+    if (!link) return failure(res, 404, "LINK_NOT_FOUND", "Device link was not found.");
+
+    const progress = await activeAssignmentProgress(link.harvesterDeviceId);
+    if (progress && progress.harvested < progress.points) {
+      return failure(res, 409, "ACTIVE_ASSIGNMENT", "Finish the current harvest assignment before removing this link.");
+    }
+
+    await DeviceLink.deleteOne({ _id: link._id }).exec();
+    return success(res);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post("/links/:countDeviceId/assignments", requireDashboardMutationAccess, async (req, res, next) => {
+  const countDeviceId = req.params.countDeviceId;
+  const now = unixNow();
+  let lockedLink;
+  try {
+    lockedLink = await DeviceLink.findOneAndUpdate(
+      {
+        countDeviceId,
+        $or: [
+          { assignmentLockUntil: { $exists: false } },
+          { assignmentLockUntil: { $lt: now } },
+        ],
+      },
+      { $set: { assignmentLockUntil: now + 120 } },
+      { new: true }
+    ).lean().exec();
+    if (!lockedLink) {
+      return failure(res, 409, "LINK_BUSY", "Device link is missing or an assignment is already being created.");
+    }
+
+    const progress = await activeAssignmentProgress(lockedLink.harvesterDeviceId);
+    if (progress && progress.harvested < progress.points) {
+      return failure(res, 409, "ACTIVE_ASSIGNMENT", "Finish the current harvest assignment before creating another.");
+    }
+
+    const records = await CountRecord.find({
+      deviceId: countDeviceId,
+      assignedAssignmentId: { $exists: false },
+    }).sort({ receivedAt: 1, localId: 1 }).limit(200).lean().exec();
+    if (!records.length) {
+      return failure(res, 409, "NO_NEW_RECORDS", "This count device has no unassigned uploads.");
+    }
+
+    const assignmentId = await nextSequence("assignment_id");
+    await Assignment.create({
+      assignmentId,
+      sourceDeviceId: countDeviceId,
+      harvesterDeviceId: lockedLink.harvesterDeviceId,
+      sectorName: lockedLink.sectorName,
+      generatedAt: now,
+      createdAt: now,
+      active: true,
+      points: records.map((record) => ({
+        pointId: record.localId,
+        lat: record.lat,
+        lon: record.lon,
+        countRecordId: record._id,
+      })),
+    });
+
+    await CountRecord.updateMany(
+      { _id: { $in: records.map((record) => record._id) } },
+      { $set: { assignedAssignmentId: assignmentId } }
+    ).exec();
+    await Assignment.updateMany(
+      { harvesterDeviceId: lockedLink.harvesterDeviceId, active: true, assignmentId: { $ne: assignmentId } },
+      { $set: { active: false } }
+    ).exec();
+    return success(res, {
+      assignmentId,
+      countDeviceId,
+      harvesterDeviceId: lockedLink.harvesterDeviceId,
+      points: records.length,
+    }, 201);
+  } catch (err) {
+    return next(err);
+  } finally {
+    if (lockedLink) {
+      await DeviceLink.updateOne(
+        { _id: lockedLink._id, assignmentLockUntil: now + 120 },
+        { $unset: { assignmentLockUntil: "" } }
+      ).exec().catch((err) => console.error("Failed to release assignment lock", err));
+    }
   }
 });
 

@@ -59,6 +59,53 @@
         </article>
       </section>
 
+      <details id="deviceLinks" class="links-section">
+        <summary>
+          <span>Device links</span>
+          <span id="linkSummary" class="link-summary">Loading...</span>
+        </summary>
+        <div class="links-content">
+          <form id="linkForm" class="link-form">
+            <label>
+              <span>Upload device</span>
+              <select id="linkCountDevice" required>
+                <option value="">Select count device</option>
+              </select>
+            </label>
+            <label>
+              <span>Download device</span>
+              <select id="linkHarvestDevice" required>
+                <option value="">Select harvest device</option>
+              </select>
+            </label>
+            <label>
+              <span>Sector name</span>
+              <input id="linkSector" type="text" maxlength="100" placeholder="e.g. Block A" required />
+            </label>
+            <button id="saveLinkButton" class="primary-button" type="submit">Save link</button>
+          </form>
+          <p id="linkMessage" class="link-message" role="status" aria-live="polite"></p>
+          <div class="links-table-wrap">
+            <table class="links-table">
+              <thead>
+                <tr>
+                  <th>Upload device</th>
+                  <th>Download device</th>
+                  <th>Sector</th>
+                  <th>Uploads</th>
+                  <th>Ready</th>
+                  <th>Current assignment</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="linksBody">
+                <tr><td colspan="7" class="empty-state">Loading links...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+
       <section class="map-section" aria-label="Map">
         <div id="map" class="map"></div>
         <div id="fallbackMap" class="fallback-map" hidden></div>

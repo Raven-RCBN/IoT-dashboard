@@ -31,7 +31,8 @@ Indexes:
   ts: 1786003200,
   battery: 84,
   receivedAt: 1786006800,
-  zoneId: 12
+  zoneId: 12,
+  assignedAssignmentId: 501
 }
 ```
 
@@ -40,6 +41,22 @@ Indexes:
 - Unique compound `{ deviceId: 1, localId: 1 }`.
 - `{ deviceId: 1 }`.
 - `{ zoneId: 1 }`.
+
+`assignedAssignmentId` is set when the dashboard packages the count upload into a harvest assignment.
+
+## device_links
+
+```js
+{
+  countDeviceId: "CNT00003",
+  harvesterDeviceId: "HRV00002",
+  sectorName: "Block A",
+  createdAt: 1786000000,
+  updatedAt: 1786000000
+}
+```
+
+Both device IDs are unique: a count device has one destination, and a harvest device has one source.
 
 ## zones
 
@@ -63,6 +80,7 @@ Assignment points are embedded because they are downloaded together as one devic
 ```js
 {
   assignmentId: 501,
+  sourceDeviceId: "CNT00003",
   zoneId: 12,
   harvesterDeviceId: "HRV00002",
   sectorName: "Sector B",

@@ -14,6 +14,7 @@ const assignmentSchema = new mongoose.Schema(
   {
     assignmentId: { type: Number, required: true, unique: true, index: true },
     zoneId: { type: Number },
+    sourceDeviceId: { type: String },
     harvesterDeviceId: { type: String, required: true, index: true },
     sectorName: { type: String, required: true },
     generatedAt: { type: Number, required: true },

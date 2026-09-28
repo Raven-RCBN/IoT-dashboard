@@ -1,6 +1,7 @@
 const state = {
   rows: [],
   devices: [],
+  links: [],
   dateCounts: [],
   selectedType: "all",
   loginEnabled: false,
@@ -36,6 +37,14 @@ const els = {
   legend: document.getElementById("legend"),
   recordsBody: document.getElementById("recordsBody"),
   lastUpdated: document.getElementById("lastUpdated"),
+  linkForm: document.getElementById("linkForm"),
+  linkCountDevice: document.getElementById("linkCountDevice"),
+  linkHarvestDevice: document.getElementById("linkHarvestDevice"),
+  linkSector: document.getElementById("linkSector"),
+  saveLinkButton: document.getElementById("saveLinkButton"),
+  linkSummary: document.getElementById("linkSummary"),
+  linkMessage: document.getElementById("linkMessage"),
+  linksBody: document.getElementById("linksBody"),
 };
 
 function malaysiaDate() {
@@ -142,6 +151,73 @@ function updateDeviceFilter(devices) {
   els.deviceFilter.value = [...devices.map((device) => device.deviceId), "all"].includes(selected)
     ? selected
     : "all";
+}
+
+function updateLinkDeviceOptions() {
+  const selectedCount = els.linkCountDevice.value;
+  const selectedHarvest = els.linkHarvestDevice.value;
+  const countDevices = state.devices.filter((device) => device.role === "count");
+  const harvestDevices = state.devices.filter((device) => device.role === "harvest");
+  els.linkCountDevice.innerHTML = '<option value="">Select count device</option>' +
+    countDevices.map((device) => `<option value="${escapeHtml(device.deviceId)}">${escapeHtml(device.deviceId)}</option>`).join("");
+  els.linkHarvestDevice.innerHTML = '<option value="">Select harvest device</option>' +
+    harvestDevices.map((device) => `<option value="${escapeHtml(device.deviceId)}">${escapeHtml(device.deviceId)}</option>`).join("");
+  els.linkCountDevice.value = countDevices.some((device) => device.deviceId === selectedCount) ? selectedCount : "";
+  els.linkHarvestDevice.value = harvestDevices.some((device) => device.deviceId === selectedHarvest) ? selectedHarvest : "";
+}
+
+function setLinkMessage(message, error = false) {
+  els.linkMessage.textContent = message;
+  els.linkMessage.classList.toggle("error-text", error);
+}
+
+function renderLinks() {
+  const count = state.links.length;
+  els.linkSummary.textContent = `${count} configured`;
+  if (!count) {
+    els.linksBody.innerHTML = '<tr><td colspan="7" class="empty-state">No device links configured.</td></tr>';
+    return;
+  }
+
+  els.linksBody.innerHTML = state.links.map((link) => {
+    const active = link.activeAssignment;
+    const busy = active && active.harvested < active.points;
+    const assignmentText = active
+      ? `#${active.assignmentId} | ${active.harvested}/${active.points} harvested${active.acked ? " | acknowledged" : ""}`
+      : "None";
+    return `<tr>
+      <td>${escapeHtml(link.countDeviceId)}</td>
+      <td>${escapeHtml(link.harvesterDeviceId)}</td>
+      <td>${escapeHtml(link.sectorName)}</td>
+      <td>${escapeHtml(link.uploads)}</td>
+      <td>${escapeHtml(link.unassigned)}</td>
+      <td>${escapeHtml(assignmentText)}</td>
+      <td class="link-actions">
+        <button type="button" class="secondary-button" data-action="inspect" data-source="${escapeHtml(link.countDeviceId)}">Inspect</button>
+        <button type="button" class="primary-button" data-action="assign" data-source="${escapeHtml(link.countDeviceId)}" ${!link.unassigned || busy ? "disabled" : ""}>Create assignment</button>
+        <button type="button" class="text-button" data-action="remove" data-source="${escapeHtml(link.countDeviceId)}" ${busy ? "disabled" : ""}>Remove</button>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+async function dashboardRequest(url, options) {
+  const response = await fetch(url, options);
+  const payload = await response.json().catch(() => ({}));
+  if (response.status === 401) {
+    window.location.replace("/");
+    throw new Error("Session expired.");
+  }
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.message || `Request failed (${response.status}).`);
+  }
+  return payload.data || {};
+}
+
+async function loadLinks() {
+  const data = await dashboardRequest("/api/v1/dashboard/links");
+  state.links = data.links || [];
+  renderLinks();
 }
 
 function updateDayFilter() {
@@ -361,15 +437,106 @@ async function loadData() {
   state.dateCounts = payload.data.dateCounts || [];
   updateStats(payload.data.summary || {});
   updateDeviceFilter(state.devices);
+  updateLinkDeviceOptions();
   updateDayFilter();
   renderAll();
   els.lastUpdated.textContent = `Updated ${formatTime(Math.floor(Date.now() / 1000))}`;
   setStatus("Connected");
 }
 
+function selectRecordType(type) {
+  state.selectedType = type;
+  document.querySelectorAll(".segment-button").forEach((button) => {
+    button.classList.toggle("active", button.dataset.type === type);
+  });
+  renderAll();
+}
+
+els.linkCountDevice.addEventListener("change", () => {
+  const link = state.links.find((item) => item.countDeviceId === els.linkCountDevice.value);
+  if (link) {
+    els.linkHarvestDevice.value = link.harvesterDeviceId;
+    els.linkSector.value = link.sectorName;
+  } else {
+    els.linkHarvestDevice.value = "";
+    els.linkSector.value = "";
+  }
+});
+
+els.linkForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  els.saveLinkButton.disabled = true;
+  setLinkMessage("Saving link...");
+  try {
+    const data = await dashboardRequest("/api/v1/dashboard/links", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        countDeviceId: els.linkCountDevice.value,
+        harvesterDeviceId: els.linkHarvestDevice.value,
+        sectorName: els.linkSector.value,
+      }),
+    });
+    await loadLinks();
+    setLinkMessage(`${data.countDeviceId} is linked to ${data.harvesterDeviceId}.`);
+  } catch (err) {
+    setLinkMessage(err.message, true);
+  } finally {
+    els.saveLinkButton.disabled = false;
+  }
+});
+
+els.linksBody.addEventListener("click", async (event) => {
+  const button = event.target.closest("button[data-action]");
+  if (!button || button.disabled) return;
+  const link = state.links.find((item) => item.countDeviceId === button.dataset.source);
+  if (!link) return;
+
+  if (button.dataset.action === "inspect") {
+    els.deviceFilter.value = link.countDeviceId;
+    selectRecordType("upload");
+    await loadData().catch((err) => setLinkMessage(err.message, true));
+    document.querySelector(".grid-section").scrollIntoView({ behavior: "smooth" });
+    return;
+  }
+
+  if (button.dataset.action === "remove" &&
+      !window.confirm(`Remove the link from ${link.countDeviceId} to ${link.harvesterDeviceId}?`)) {
+    return;
+  }
+
+  button.disabled = true;
+  setLinkMessage(button.dataset.action === "assign" ? "Creating assignment..." : "Removing link...");
+  try {
+    if (button.dataset.action === "assign") {
+      const data = await dashboardRequest(
+        `/api/v1/dashboard/links/${encodeURIComponent(link.countDeviceId)}/assignments`,
+        { method: "POST" }
+      );
+      await loadLinks();
+      els.monthFilter.value = malaysiaMonth();
+      els.dayFilter.value = "all";
+      els.deviceFilter.value = link.harvesterDeviceId;
+      selectRecordType("download");
+      await loadData();
+      setLinkMessage(`Assignment #${data.assignmentId} is ready for ${data.harvesterDeviceId} (${data.points} points).`);
+    } else {
+      await dashboardRequest(`/api/v1/dashboard/links/${encodeURIComponent(link.countDeviceId)}`, {
+        method: "DELETE",
+      });
+      await loadLinks();
+      setLinkMessage(`Link for ${link.countDeviceId} removed.`);
+    }
+  } catch (err) {
+    setLinkMessage(err.message, true);
+  } finally {
+    button.disabled = false;
+  }
+});
+
 els.filters.addEventListener("submit", (event) => {
   event.preventDefault();
-  loadData().catch((err) => {
+  Promise.all([loadData(), loadLinks()]).catch((err) => {
     setStatus(err.message || "Load failed", true);
   });
 });
@@ -388,11 +555,7 @@ els.logoutButton.addEventListener("click", async () => {
 
 document.querySelectorAll(".segment-button").forEach((button) => {
   button.addEventListener("click", () => {
-    document.querySelectorAll(".segment-button").forEach((item) => {
-      item.classList.toggle("active", item === button);
-    });
-    state.selectedType = button.dataset.type;
-    renderAll();
+    selectRecordType(button.dataset.type);
   });
 });
 
@@ -421,6 +584,7 @@ async function init() {
   }
 
   await loadData();
+  await loadLinks();
 }
 
 init().catch((err) => {
